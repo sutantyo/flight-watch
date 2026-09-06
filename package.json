@@ -1,0 +1,18 @@
+{
+  "name": "flight-watch",
+  "version": "0.1.0",
+  "description": "Type a flight number and see its path and the aviation warnings near it.",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node server/server.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@fastify/static": "^10.1.8",
+    "fastify": "^5.12.7"
+  }
+}
