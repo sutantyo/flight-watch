@@ -1,0 +1,13 @@
+{
+  "_note": "Written by hand in the shape of adsbdb's answer to /v0/callsign/QF25, not saved from adsbdb: its route data may not be copied or published (see data/README.md). Only the fields we read, plus the airline block so the shape is recognisable.",
+  "response": {
+    "flightroute": {
+      "callsign": "QF25",
+      "callsign_icao": "QFA25",
+      "callsign_iata": "QF25",
+      "airline": { "name": "Qantas", "icao": "QFA", "iata": "QF" },
+      "origin": { "iata_code": "SYD", "icao_code": "YSSY", "name": "Sydney Kingsford Smith International Airport" },
+      "destination": { "iata_code": "HND", "icao_code": "RJTT", "name": "Tokyo Haneda International Airport" }
+    }
+  }
+}
