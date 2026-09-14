@@ -44,3 +44,9 @@ export function nearestAirport(lat, lon) {
   }
   return best && { iata: best.iata, name: best.name };
 }
+
+// One airport by its IATA code (e.g. 'SYD') as { iata, name, lat, lon }, or null if it's not in our file.
+export function findAirport(iata) {
+  const a = loadAirports().find((airport) => airport.iata === iata);
+  return a ? { iata: a.iata, name: a.name, lat: a.lat, lon: a.lon } : null;
+}
