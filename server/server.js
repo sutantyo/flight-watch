@@ -29,7 +29,15 @@ export function buildServer(options = {}) {
   // The number goes to the lookup exactly as typed.
   app.get('/api/flight/:number', async (request, reply) => {
     const { number } = request.params;
-    const route = await lookupRoute(number);
+    let route;
+    try {
+      route = await lookupRoute(number);
+    } catch (err) {
+      // Catch it here: left alone, Fastify sends adsbdb's own status (a 503, say) back to the browser,
+      // which reads as if our server were down. 502 says "the server is fine, the service behind it isn't".
+      log.error(`flight lookup for ${number} failed: adsbdb status ${err.status ?? 'unknown'} (${err.message})`);
+      return reply.code(502).send({ error: 'feed-unavailable' });
+    }
     if (!route) return reply.code(404).send({ error: 'not-found' });
     return route;
   });
