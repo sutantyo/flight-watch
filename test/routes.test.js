@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { lookupRoute } from '../server/feeds/routes.js';
 
 const sample = JSON.parse(readFileSync(new URL('./fixtures/adsbdb-route-sample.json', import.meta.url), 'utf8'));
@@ -37,4 +39,22 @@ test('lookupRoute gives the callsign, both airports and a line between them', as
       { lat: hnd.lat, lon: hnd.lon },
     ],
   });
+});
+
+test('lookupRoute throws with the status, and logs a WARN, when adsbdb answers with anything but 200', async (t) => {
+  // Send the log to a temporary file so we can read it back.
+  const folder = mkdtempSync(join(tmpdir(), 'flight-watch-routes-'));
+  const file = join(folder, 'test.log');
+  const before = process.env.LOG_FILE;
+  process.env.LOG_FILE = file;
+  t.mock.method(console, 'log', () => {}); // keep test output clean
+  t.after(() => {
+    if (before === undefined) delete process.env.LOG_FILE;
+    else process.env.LOG_FILE = before;
+    rmSync(folder, { recursive: true, force: true });
+  });
+
+  const { fetch } = fakeFetch(503, {});
+  await assert.rejects(lookupRoute('QF25', { fetch }), (err) => err.status === 503);
+  assert.match(readFileSync(file, 'utf8'), /WARN  adsbdb returned 503 for https:\/\/api\.adsbdb\.com\/v0\/callsign\/QF25/);
 });
