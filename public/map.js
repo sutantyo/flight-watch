@@ -30,3 +30,32 @@ async function showAirports() {
 }
 
 showAirports();
+
+// Flight search. Asks the server for the flight the user typed.
+const searchForm = document.getElementById('search');
+const flightInput = document.getElementById('flight');
+
+// The route line and airport markers currently on the map, so a new search can remove them.
+let flightLayer = null;
+
+// Draw the route as a line from one airport to the other, with a marker at each end,
+// and zoom the map to fit it. The label on the arrival airport says where the flight goes.
+function showFlight(flight) {
+  const points = flight.points.map((p) => [p.lat, p.lon]);
+  const line = L.polyline(points, { color: '#d9480f', weight: 3 });
+  const from = L.circleMarker([flight.from.lat, flight.from.lon], { radius: 6, color: '#d9480f', fillOpacity: 1 })
+    .bindTooltip(`${flight.from.iata} ${flight.from.name}`);
+  const to = L.marker([flight.to.lat, flight.to.lon])
+    .bindTooltip(`${flight.callsign}: ${flight.from.iata} → ${flight.to.iata}`, { permanent: true });
+
+  if (flightLayer) flightLayer.remove();
+  flightLayer = L.layerGroup([line, from, to]).addTo(map);
+  map.fitBounds(line.getBounds(), { padding: [40, 40] });
+}
+
+searchForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const res = await fetch(`/api/flight/${flightInput.value}`);
+  const flight = await res.json();
+  showFlight(flight);
+});
