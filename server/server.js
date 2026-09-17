@@ -7,8 +7,14 @@ import { loadAirports } from './feeds/airports.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
+// The real route lookup lives in feeds/routes.js. It's loaded the first time a flight is asked for,
+// so the server starts (and tests run) without it.
+const lookupFromAdsbdb = async (number) => (await import('./feeds/routes.js')).lookupRoute(number);
+
 // Build the app without starting it, so tests can call app.inject().
-export function buildServer() {
+// Tests can pass their own lookupRoute, so they don't call adsbdb.
+export function buildServer(options = {}) {
+  const lookupRoute = options.lookupRoute ?? lookupFromAdsbdb;
   const app = Fastify();
   app.register(fastifyStatic, { root: join(here, '..', 'public') });
 
@@ -18,6 +24,23 @@ export function buildServer() {
       .filter((a) => a.type === 'large_airport')
       .map(({ iata, name, lat, lon }) => ({ iata, name, lat, lon })),
   );
+
+  // A flight's usual route: { callsign, from, to, points: [{ lat, lon }] }.
+  // The number goes to the lookup exactly as typed.
+  app.get('/api/flight/:number', async (request, reply) => {
+    const { number } = request.params;
+    let route;
+    try {
+      route = await lookupRoute(number);
+    } catch (err) {
+      // Catch it here: left alone, Fastify sends adsbdb's own status (a 503, say) back to the browser,
+      // which reads as if our server were down. 502 says "the server is fine, the service behind it isn't".
+      log.error(`flight lookup for ${number} failed: adsbdb status ${err.status ?? 'unknown'} (${err.message})`);
+      return reply.code(502).send({ error: 'feed-unavailable' });
+    }
+    if (!route) return reply.code(404).send({ error: 'not-found' });
+    return route;
+  });
 
   return app;
 }
