@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { loadAirports, nearestAirport, distanceKm } from '../server/feeds/airports.js';
+import { loadAirports, nearestAirport, distanceKm, findAirport } from '../server/feeds/airports.js';
 import { buildServer } from '../server/server.js';
 
 test('loadAirports reads every row with numbers for lat and lon', () => {
@@ -57,4 +57,17 @@ test('GET /api/airports returns the large airports for the map', async () => {
   // Large airports only: Taupo (TUO) is a medium one.
   assert.equal(list.find((a) => a.iata === 'TUO'), undefined);
   await app.close();
+});
+
+test('findAirport looks an airport up by its IATA code', () => {
+  assert.deepEqual(findAirport('LAX'), {
+    iata: 'LAX',
+    name: 'Los Angeles International Airport',
+    lat: 33.942501,
+    lon: -118.407997,
+  });
+});
+
+test('findAirport returns null for a code that is not in the file', () => {
+  assert.equal(findAirport('ZZZ'), null);
 });
