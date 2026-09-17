@@ -12,11 +12,18 @@ const HEADERS = { 'User-Agent': 'flight-watch (teaching project)' };
 //   { callsign, from: { iata, name, lat, lon }, to: { ... }, points: [{ lat, lon }] }
 // callsign is the ICAO form adsbdb gives (QF25 flies as 'QFA25'). points is the line we draw: for now
 // just the two airports.
-// Throws an Error with .status (e.g. 503) if adsbdb answers with anything but 200.
+// Returns null if adsbdb doesn't know the flight: it answers 404 "unknown callsign", or 400 "invalid callsign"
+// for numbers it won't take, like QF1 (it wants at least 4 characters in this form; QFA1 works).
+// Throws an Error with .status (e.g. 503) if adsbdb answers with anything else but 200.
 // Pass your own fetch to test without the network.
 export async function lookupRoute(number, { fetch = globalThis.fetch } = {}) {
   const url = `${API}/${number}`;
   const res = await fetch(url, { headers: HEADERS });
+  if (res.status === 404 || res.status === 400) {
+    const { response } = await res.json();
+    log.info(`adsbdb has no route for ${number} (${res.status}: ${response})`);
+    return null;
+  }
   if (res.status !== 200) {
     log.warn(`adsbdb returned ${res.status} for ${url}`);
     const err = new Error(`adsbdb returned ${res.status}`);

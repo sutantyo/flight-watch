@@ -58,3 +58,15 @@ test('lookupRoute throws with the status, and logs a WARN, when adsbdb answers w
   await assert.rejects(lookupRoute('QF25', { fetch }), (err) => err.status === 503);
   assert.match(readFileSync(file, 'utf8'), /WARN  adsbdb returned 503 for https:\/\/api\.adsbdb\.com\/v0\/callsign\/QF25/);
 });
+
+test('lookupRoute gives null when adsbdb doesn\'t know the flight (404 "unknown callsign")', async (t) => {
+  t.mock.method(console, 'log', () => {});
+  const { fetch } = fakeFetch(404, { response: 'unknown callsign' });
+  assert.equal(await lookupRoute('QFA6', { fetch }), null);
+});
+
+test('lookupRoute gives null when adsbdb won\'t take the flight number (400 "invalid callsign", e.g. QF1)', async (t) => {
+  t.mock.method(console, 'log', () => {});
+  const { fetch } = fakeFetch(400, { response: 'invalid callsign: QF1' });
+  assert.equal(await lookupRoute('QF1', { fetch }), null);
+});
