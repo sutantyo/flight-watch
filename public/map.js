@@ -38,6 +38,14 @@ const flightInput = document.getElementById('flight');
 // The route line and airport markers currently on the map, so a new search can remove them.
 let flightLayer = null;
 
+// Remove the last flight's route and markers, if there are any.
+function clearFlight() {
+  if (flightLayer) {
+    flightLayer.remove();
+    flightLayer = null;
+  }
+}
+
 // Draw the route as a line from one airport to the other, with a marker at each end,
 // and zoom the map to fit it. The label on the arrival airport says where the flight goes.
 function showFlight(flight) {
@@ -48,13 +56,14 @@ function showFlight(flight) {
   const to = L.marker([flight.to.lat, flight.to.lon])
     .bindTooltip(`${flight.callsign}: ${flight.from.iata} → ${flight.to.iata}`, { permanent: true });
 
-  if (flightLayer) flightLayer.remove();
   flightLayer = L.layerGroup([line, from, to]).addTo(map);
   map.fitBounds(line.getBounds(), { padding: [40, 40] });
 }
 
 searchForm.addEventListener('submit', async (event) => {
   event.preventDefault();
+  // Clear the old flight first, so it doesn't stay on the map looking like the answer.
+  clearFlight();
   const res = await fetch(`/api/flight/${flightInput.value}`);
   const flight = await res.json();
   showFlight(flight);
