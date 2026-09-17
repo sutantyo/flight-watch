@@ -8,9 +8,15 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header>Flight Watch</header>
+  <header>
+    <span class="title">Flight Watch</span>
+    <form id="search">
+      <input id="flight" type="text" placeholder="Flight number, e.g. QF25" aria-label="Flight number">
+      <button type="submit">Search</button>
+    </form>
+  </header>
   <div id="map"></div>
-  <footer>For learning only, not for flight planning.</footer>
+  <footer>For learning only, not for flight planning. · Routes: <a href="https://github.com/mrjackwills/adsbdb">adsbdb</a> (a flight's usual airports; the line between them is approximate, not the flight plan) · Airports: <a href="https://ourairports.com">OurAirports</a></footer>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
   <script src="map.js"></script>
