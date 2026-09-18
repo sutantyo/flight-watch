@@ -8,7 +8,10 @@ import { findAirport } from './airports.js';
 const API = 'https://api.adsbdb.com/v0/callsign';
 const HEADERS = { 'User-Agent': 'flight-watch (teaching project)' };
 
-// Look up a flight number (e.g. 'QF25') and return its route:
+// An airline code (2 or 3 letters or digits, e.g. QF, QFA, G3), then 1 to 4 digits, maybe a letter at the end.
+const FLIGHT_NUMBER = /^[A-Z0-9]{2,3}[0-9]{1,4}[A-Z]?$/;
+
+// Look up a flight number (e.g. 'QF25', or ' qf 25 ' as typed) and return its route:
 //   { callsign, from: { iata, name, lat, lon }, to: { ... }, points: [{ lat, lon }] }
 // callsign is the ICAO form adsbdb gives (QF25 flies as 'QFA25'). points is the line we draw: for now
 // just the two airports.
@@ -16,7 +19,11 @@ const HEADERS = { 'User-Agent': 'flight-watch (teaching project)' };
 // for numbers it won't take, like QF1 (it wants at least 4 characters in this form; QFA1 works).
 // Throws an Error with .status (e.g. 503) if adsbdb answers with anything else but 200.
 // Pass your own fetch to test without the network.
-export async function lookupRoute(number, { fetch = globalThis.fetch } = {}) {
+export async function lookupRoute(input, { fetch = globalThis.fetch } = {}) {
+  // People type ' qf 25 ': remove the spaces and upper-case it. Anything that still doesn't look like a flight
+  // number (a name, a slash, a '?') isn't sent to adsbdb at all, since it would end up in the URL.
+  const number = input.replace(/\s+/g, '').toUpperCase();
+  if (!FLIGHT_NUMBER.test(number)) return null;
   const url = `${API}/${number}`;
   const res = await fetch(url, { headers: HEADERS });
   if (res.status === 404 || res.status === 400) {

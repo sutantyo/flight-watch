@@ -70,3 +70,17 @@ test('lookupRoute gives null when adsbdb won\'t take the flight number (400 "inv
   const { fetch } = fakeFetch(400, { response: 'invalid callsign: QF1' });
   assert.equal(await lookupRoute('QF1', { fetch }), null);
 });
+
+test('lookupRoute tidies the flight number before asking: no spaces, upper case', async () => {
+  const { fetch, calls } = fakeFetch(200, sample);
+  await lookupRoute(' qf 25 ', { fetch });
+  assert.equal(calls[0].url, 'https://api.adsbdb.com/v0/callsign/QF25');
+});
+
+test('lookupRoute gives null without asking adsbdb for something that can\'t be a flight number', async () => {
+  for (const input of ['', 'Qantas', 'QF/25', 'QF25?x=1', '25']) {
+    const { fetch, calls } = fakeFetch(200, sample);
+    assert.equal(await lookupRoute(input, { fetch }), null, input);
+    assert.equal(calls.length, 0, input);
+  }
+});
