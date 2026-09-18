@@ -34,6 +34,7 @@ showAirports();
 // Flight search. Asks the server for the flight the user typed.
 const searchForm = document.getElementById('search');
 const flightInput = document.getElementById('flight');
+const message = document.getElementById('message');
 
 // The route line and airport markers currently on the map, so a new search can remove them.
 let flightLayer = null;
@@ -62,9 +63,24 @@ function showFlight(flight) {
 
 searchForm.addEventListener('submit', async (event) => {
   event.preventDefault();
+  message.textContent = '';
   // Clear the old flight first, so it doesn't stay on the map looking like the answer.
   clearFlight();
-  const res = await fetch(`/api/flight/${flightInput.value}`);
-  const flight = await res.json();
-  showFlight(flight);
+  const number = flightInput.value.trim();
+
+  try {
+    // encodeURIComponent so a / or ? typed in the box can't change the request
+    const res = await fetch(`/api/flight/${encodeURIComponent(number)}`);
+    if (res.status === 404) {
+      message.textContent = `We couldn't find ${number}. Check the flight number. For a one-digit flight like QF1, try the airline's 3-letter code: QFA1.`;
+      return;
+    }
+    if (!res.ok) {
+      message.textContent = 'Route data is unavailable right now, try again soon.';
+      return;
+    }
+    showFlight(await res.json());
+  } catch (err) {
+    message.textContent = 'Route data is unavailable right now, try again soon.';
+  }
 });

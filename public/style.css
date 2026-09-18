@@ -40,6 +40,11 @@ header .title {
   font-size: 14px;
 }
 
+#message {
+  font-size: 14px;
+  color: #ffd27f;
+}
+
 #map {
   flex: 1;
 }
