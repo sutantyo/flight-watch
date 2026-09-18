@@ -84,3 +84,23 @@ test('lookupRoute gives null without asking adsbdb for something that can\'t be 
     assert.equal(calls.length, 0, input);
   }
 });
+
+test('lookupRoute gives null, and logs a WARN, when an airport isn\'t in our airports file', async (t) => {
+  const folder = mkdtempSync(join(tmpdir(), 'flight-watch-routes-'));
+  const file = join(folder, 'test.log');
+  const before = process.env.LOG_FILE;
+  process.env.LOG_FILE = file;
+  t.mock.method(console, 'log', () => {});
+  t.after(() => {
+    if (before === undefined) delete process.env.LOG_FILE;
+    else process.env.LOG_FILE = before;
+    rmSync(folder, { recursive: true, force: true });
+  });
+
+  // The sample, but going to an airport code we don't have (our file has large and medium airports only).
+  const elsewhere = structuredClone(sample);
+  elsewhere.response.flightroute.destination.iata_code = 'ZZZ';
+  const { fetch } = fakeFetch(200, elsewhere);
+  assert.equal(await lookupRoute('QF25', { fetch }), null);
+  assert.match(readFileSync(file, 'utf8'), /WARN  route for QFA25 goes from SYD to ZZZ, and ZZZ isn't in data\/airports\.csv/);
+});

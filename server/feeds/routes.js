@@ -15,8 +15,9 @@ const FLIGHT_NUMBER = /^[A-Z0-9]{2,3}[0-9]{1,4}[A-Z]?$/;
 //   { callsign, from: { iata, name, lat, lon }, to: { ... }, points: [{ lat, lon }] }
 // callsign is the ICAO form adsbdb gives (QF25 flies as 'QFA25'). points is the line we draw: for now
 // just the two airports.
-// Returns null if adsbdb doesn't know the flight: it answers 404 "unknown callsign", or 400 "invalid callsign"
-// for numbers it won't take, like QF1 (it wants at least 4 characters in this form; QFA1 works).
+// Returns null if one of the airports isn't in our file, or if adsbdb doesn't know the flight: it answers 404
+// "unknown callsign", or 400 "invalid callsign" for numbers it won't take, like QF1 (it wants at least 4
+// characters in this form; QFA1 works).
 // Throws an Error with .status (e.g. 503) if adsbdb answers with anything else but 200.
 // Pass your own fetch to test without the network.
 export async function lookupRoute(input, { fetch = globalThis.fetch } = {}) {
@@ -40,6 +41,15 @@ export async function lookupRoute(input, { fetch = globalThis.fetch } = {}) {
   const { flightroute } = (await res.json()).response;
   const from = findAirport(flightroute.origin.iata_code);
   const to = findAirport(flightroute.destination.iata_code);
+  // Our file only has large and medium airports, so a route to a small airfield can't be drawn.
+  if (!from || !to) {
+    const missing = [!from && flightroute.origin.iata_code, !to && flightroute.destination.iata_code].filter(Boolean);
+    log.warn(
+      `route for ${flightroute.callsign_icao} goes from ${flightroute.origin.iata_code} to ` +
+        `${flightroute.destination.iata_code}, and ${missing.join(' and ')} isn't in data/airports.csv: left out`,
+    );
+    return null;
+  }
   return {
     callsign: flightroute.callsign_icao,
     from,
