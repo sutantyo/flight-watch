@@ -4,6 +4,7 @@ import Fastify from 'fastify';
 import fastifyStatic from '@fastify/static';
 import { log } from './log.js';
 import { loadAirports } from './feeds/airports.js';
+import { startPolling } from './poller.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -12,9 +13,11 @@ const here = dirname(fileURLToPath(import.meta.url));
 const lookupFromAdsbdb = async (number) => (await import('./feeds/routes.js')).lookupRoute(number);
 
 // Build the app without starting it, so tests can call app.inject().
-// Tests can pass their own lookupRoute, so they don't call adsbdb.
+// Tests can pass their own lookupRoute, so they don't call adsbdb, and their own poller (anything with
+// latest(name)). Without a poller there are no warnings.
 export function buildServer(options = {}) {
   const lookupRoute = options.lookupRoute ?? lookupFromAdsbdb;
+  const poller = options.poller;
   const app = Fastify();
   app.register(fastifyStatic, { root: join(here, '..', 'public') });
 
@@ -42,13 +45,30 @@ export function buildServer(options = {}) {
     return route;
   });
 
+  // The latest SIGMET warnings (storms, turbulence, icing, volcanic ash), [] until the first fetch is in.
+  app.get('/api/warnings', async () => poller?.latest('sigmets') ?? []);
+
   return app;
 }
 
 // Only listen when this file is run directly (npm start), not when a test imports it.
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const port = Number(process.env.PORT) || 3000;
-  const app = buildServer();
+
+  // Keep the warnings fresh in the background, loaded when first used like the route lookup.
+  // Every 2 s, so a new SIGMET is on the map as soon as aviationweather.gov has it.
+  const poller = startPolling({
+    log,
+    sources: [
+      {
+        name: 'sigmets',
+        everySeconds: 2,
+        fetch: async () => (await import('./feeds/sigmets.js')).fetchSigmets(),
+      },
+    ],
+  });
+
+  const app = buildServer({ poller });
   await app.listen({ port, host: '0.0.0.0' });
   log.info(`Flight Watch running at http://localhost:${port}`);
 }
