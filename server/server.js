@@ -5,6 +5,7 @@ import fastifyStatic from '@fastify/static';
 import { log } from './log.js';
 import { loadAirports } from './feeds/airports.js';
 import { startPolling } from './poller.js';
+import { cached } from './cache.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -29,12 +30,15 @@ export function buildServer(options = {}) {
   );
 
   // A flight's usual route: { callsign, from, to, points: [{ lat, lon }] }.
-  // The number goes to the lookup exactly as typed.
+  // The number goes to the lookup exactly as typed. Each answer is kept for 6 hours (a flight's usual route
+  // doesn't change from one hour to the next), in memory only: adsbdb's licence doesn't let us store its routes.
+  // "QF25", "qf25" and "QF 25" share one cache entry. A failed lookup isn't kept, so the next search tries again.
   app.get('/api/flight/:number', async (request, reply) => {
     const { number } = request.params;
+    const key = `route:${number.replace(/\s+/g, '').toUpperCase()}`;
     let route;
     try {
-      route = await lookupRoute(number);
+      route = await cached(key, 6 * 60 * 60, () => lookupRoute(number));
     } catch (err) {
       // Catch it here: left alone, Fastify sends adsbdb's own status (a 503, say) back to the browser,
       // which reads as if our server were down. 502 says "the server is fine, the service behind it isn't".
@@ -56,13 +60,14 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const port = Number(process.env.PORT) || 3000;
 
   // Keep the warnings fresh in the background, loaded when first used like the route lookup.
-  // Every 2 s, so a new SIGMET is on the map as soon as aviationweather.gov has it.
+  // SIGMETs every 5 minutes: they're issued for hours at a time, so that's plenty. aviationweather.gov allows
+  // 100 requests a minute, and that counts every copy of the app on our office network together (see #11).
   const poller = startPolling({
     log,
     sources: [
       {
         name: 'sigmets',
-        everySeconds: 2,
+        everySeconds: 5 * 60,
         fetch: async () => (await import('./feeds/sigmets.js')).fetchSigmets(),
       },
     ],
