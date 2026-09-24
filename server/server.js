@@ -56,13 +56,14 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const port = Number(process.env.PORT) || 3000;
 
   // Keep the warnings fresh in the background, loaded when first used like the route lookup.
-  // Every 2 s, so a new SIGMET is on the map as soon as aviationweather.gov has it.
+  // SIGMETs every 5 minutes: they're issued for hours at a time, so that's plenty. aviationweather.gov allows
+  // 100 requests a minute, and that counts every copy of the app on our office network together (see #11).
   const poller = startPolling({
     log,
     sources: [
       {
         name: 'sigmets',
-        everySeconds: 2,
+        everySeconds: 5 * 60,
         fetch: async () => (await import('./feeds/sigmets.js')).fetchSigmets(),
       },
     ],
