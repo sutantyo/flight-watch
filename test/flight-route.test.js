@@ -1,9 +1,13 @@
-import { test } from 'node:test';
+import { test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { buildServer } from '../server/server.js';
+import { clearCache } from '../server/cache.js';
+
+// Route lookups are cached, so every test starts with an empty cache.
+beforeEach(() => clearCache());
 
 // A made-up route, in the same shape the routes feed gives us.
 const qfa25 = {
@@ -69,5 +73,36 @@ test('GET /api/flight/:number gives 502 and logs an error when adsbdb fails', as
 
   const log = readFileSync(file, 'utf8');
   assert.match(log, /ERROR .*QF25.*503/);
+  await app.close();
+});
+
+test('the same flight asked twice (any spacing or case) asks adsbdb once: routes are cached', async () => {
+  let asked = 0;
+  const app = buildServer({
+    lookupRoute: async () => {
+      asked += 1;
+      return qfa25;
+    },
+  });
+  for (const number of ['QF25', 'qf25', 'QF%2025']) {
+    const res = await app.inject({ method: 'GET', url: `/api/flight/${number}` });
+    assert.equal(res.statusCode, 200);
+  }
+  assert.equal(asked, 1);
+  await app.close();
+});
+
+test('a failed lookup is not cached: the next search asks adsbdb again', async () => {
+  let asked = 0;
+  const app = buildServer({
+    lookupRoute: async () => {
+      asked += 1;
+      if (asked === 1) throw Object.assign(new Error('adsbdb returned 503'), { status: 503 });
+      return qfa25;
+    },
+  });
+  assert.equal((await app.inject({ method: 'GET', url: '/api/flight/QF25' })).statusCode, 502);
+  assert.equal((await app.inject({ method: 'GET', url: '/api/flight/QF25' })).statusCode, 200);
+  assert.equal(asked, 2);
   await app.close();
 });
