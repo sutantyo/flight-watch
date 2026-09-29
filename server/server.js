@@ -6,6 +6,7 @@ import { log } from './log.js';
 import { loadAirports } from './feeds/airports.js';
 import { startPolling } from './poller.js';
 import { cached } from './cache.js';
+import { warningsOnRoute } from '../core/route-check.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -29,7 +30,8 @@ export function buildServer(options = {}) {
       .map(({ iata, name, lat, lon }) => ({ iata, name, lat, lon })),
   );
 
-  // A flight's usual route: { callsign, from, to, points: [{ lat, lon }] }.
+  // A flight's usual route: { callsign, from, to, points: [{ lat, lon }], onRoute: [warnings] }.
+  // onRoute is the SIGMET warnings the route passes through or within 50 km of ([] before the first fetch).
   // The number goes to the lookup exactly as typed. Each answer is kept for 6 hours (a flight's usual route
   // doesn't change from one hour to the next), in memory only: adsbdb's licence doesn't let us store its routes.
   // "QF25", "qf25" and "QF 25" share one cache entry. A failed lookup isn't kept, so the next search tries again.
@@ -46,7 +48,8 @@ export function buildServer(options = {}) {
       return reply.code(502).send({ error: 'feed-unavailable' });
     }
     if (!route) return reply.code(404).send({ error: 'not-found' });
-    return route;
+    // A new object, so the cached route isn't changed.
+    return { ...route, onRoute: warningsOnRoute(route, poller?.latest('sigmets') ?? []) };
   });
 
   // The latest SIGMET warnings (storms, turbulence, icing, volcanic ash), [] until the first fetch is in.
