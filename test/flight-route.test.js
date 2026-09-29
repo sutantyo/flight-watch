@@ -30,7 +30,7 @@ test('GET /api/flight/:number returns the route from lookupRoute', async () => {
   });
   const res = await app.inject({ method: 'GET', url: '/api/flight/QF25' });
   assert.equal(res.statusCode, 200);
-  assert.deepEqual(res.json(), qfa25);
+  assert.deepEqual(res.json(), { ...qfa25, onRoute: [] }); // no poller, so no warnings on the route
   assert.deepEqual(asked, ['QF25']); // passed on as given
   await app.close();
 });
@@ -104,5 +104,42 @@ test('a failed lookup is not cached: the next search asks adsbdb again', async (
   assert.equal((await app.inject({ method: 'GET', url: '/api/flight/QF25' })).statusCode, 502);
   assert.equal((await app.inject({ method: 'GET', url: '/api/flight/QF25' })).statusCode, 200);
   assert.equal(asked, 2);
+  await app.close();
+});
+
+// Route check (core/route-check.js): the answer says which warnings the route passes near.
+const fakePoller = (results) => ({ latest: (name) => results[name] });
+
+const sigmet = (id, coords) => ({
+  id,
+  kind: 'sigmet',
+  hazard: 'TS',
+  level: null,
+  name: 'Thunderstorms, MELBOURNE FIR',
+  validFrom: '2026-09-28T00:00:00.000Z',
+  validTo: '2026-09-28T04:00:00.000Z',
+  shape: { type: 'polygon', coords },
+});
+
+test('GET /api/flight/:number includes onRoute: the warnings the route passes near', async () => {
+  // qfa25 leaves Sydney heading north. One storm sits across its route, one is far out over the Tasman.
+  const onRoute = sigmet('YMMM-1', [[-32.5, 150.5], [-32.5, 151.5], [-33.5, 151.5], [-33.5, 150.5]]);
+  const farAway = sigmet('YMMM-2', [[-36, 158], [-36, 160], [-38, 160], [-38, 158]]);
+  const app = buildServer({
+    lookupRoute: async () => qfa25,
+    poller: fakePoller({ sigmets: [onRoute, farAway] }),
+  });
+  const res = await app.inject({ method: 'GET', url: '/api/flight/QF25' });
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual(res.json().onRoute, [onRoute]);
+  assert.deepEqual(res.json().points, qfa25.points); // the route itself is unchanged
+  await app.close();
+});
+
+test('GET /api/flight/:number gives onRoute [] before the poller has fetched any warnings', async () => {
+  const app = buildServer({ lookupRoute: async () => qfa25, poller: fakePoller({}) });
+  const res = await app.inject({ method: 'GET', url: '/api/flight/QF25' });
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual(res.json().onRoute, []);
   await app.close();
 });
