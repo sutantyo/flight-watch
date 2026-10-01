@@ -16,8 +16,14 @@
     </form>
     <span id="message" role="status"></span>
   </header>
-  <div id="map"></div>
-  <footer>For learning only, not for flight planning. · Routes: <a href="https://github.com/mrjackwills/adsbdb">adsbdb</a> (a flight's usual airports; the line between them is approximate, not the flight plan) · Airports: <a href="https://ourairports.com">OurAirports</a></footer>
+  <main>
+    <div id="map"></div>
+    <aside id="route-panel" hidden>
+      <button id="route-toggle" type="button" aria-expanded="true" aria-controls="route-list">On your route</button>
+      <ul id="route-list"></ul>
+    </aside>
+  </main>
+  <footer>For learning only, not for flight planning. · Routes: <a href="https://github.com/mrjackwills/adsbdb">adsbdb</a> (a flight's usual airports; the line between them is approximate, not the flight plan) · Airports: <a href="https://ourairports.com">OurAirports</a> · Warnings: <a href="https://aviationweather.gov">aviationweather.gov</a></footer>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
   <script src="map.js"></script>
