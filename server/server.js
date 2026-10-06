@@ -31,7 +31,8 @@ export function buildServer(options = {}) {
   );
 
   // A flight's usual route: { callsign, from, to, points: [{ lat, lon }], onRoute: [warnings] }.
-  // onRoute is the SIGMET warnings the route passes through or within 50 km of ([] before the first fetch).
+  // onRoute is the SIGMET warnings and volcano alerts the route passes through or within 50 km of
+  // ([] before the first fetch).
   // The number goes to the lookup exactly as typed. Each answer is kept for 6 hours (a flight's usual route
   // doesn't change from one hour to the next), in memory only: adsbdb's licence doesn't let us store its routes.
   // "QF25", "qf25" and "QF 25" share one cache entry. A failed lookup isn't kept, so the next search tries again.
@@ -49,7 +50,9 @@ export function buildServer(options = {}) {
     }
     if (!route) return reply.code(404).send({ error: 'not-found' });
     // A new object, so the cached route isn't changed.
-    return { ...route, onRoute: warningsOnRoute(route, poller?.latest('sigmets') ?? []) };
+    const sigmets = poller?.latest('sigmets') ?? [];
+    const volcanoes = poller?.latest('volcanoes') ?? [];
+    return { ...route, onRoute: warningsOnRoute(route, [...sigmets, ...volcanoes]) };
   });
 
   // The latest SIGMET warnings (storms, turbulence, icing, volcanic ash), [] until the first fetch is in.
