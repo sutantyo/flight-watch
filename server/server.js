@@ -16,10 +16,27 @@ const lookupFromAdsbdb = async (number) => (await import('./feeds/routes.js')).l
 
 // Build the app without starting it, so tests can call app.inject().
 // Tests can pass their own lookupRoute, so they don't call adsbdb, and their own poller (anything with
-// latest(name)). Without a poller there are no warnings.
+// latest(name)). Without a poller every warning feed counts as no-data.
 export function buildServer(options = {}) {
   const lookupRoute = options.lookupRoute ?? lookupFromAdsbdb;
   const poller = options.poller;
+
+  // The latest result for each warning feed: { status: 'ok' | 'no-data', fetchedAt, items } (see poller.js).
+  // 'no-data' means we don't know (a 204, or no answer yet), which is not the same as "no warnings" (issue #23).
+  const WARNING_FEEDS = ['sigmets', 'volcanoes'];
+  const noData = { status: 'no-data', fetchedAt: null, items: [] };
+  function warningFeeds() {
+    const results = Object.fromEntries(WARNING_FEEDS.map((name) => [name, poller?.latest(name) ?? noData]));
+    return {
+      // All the warnings we have, SIGMETs first, then the volcano alerts.
+      warnings: WARNING_FEEDS.flatMap((name) => results[name].items),
+      // Per feed, whether we have data and when it arrived, so the page can tell "clear" from "unknown".
+      feeds: Object.fromEntries(
+        WARNING_FEEDS.map((name) => [name, { status: results[name].status, fetchedAt: results[name].fetchedAt }]),
+      ),
+    };
+  }
+
   const app = Fastify();
   app.register(fastifyStatic, { root: join(here, '..', 'public') });
 
@@ -30,9 +47,9 @@ export function buildServer(options = {}) {
       .map(({ iata, name, lat, lon }) => ({ iata, name, lat, lon })),
   );
 
-  // A flight's usual route: { callsign, from, to, points: [{ lat, lon }], onRoute: [warnings] }.
-  // onRoute is the SIGMET warnings and volcano alerts the route passes through or within 50 km of
-  // ([] before the first fetch).
+  // A flight's usual route: { callsign, from, to, points: [{ lat, lon }], onRoute: [warnings], feeds }.
+  // onRoute is the SIGMET warnings and volcano alerts the route passes through or within 50 km of.
+  // feeds is the same as in /api/warnings: an empty onRoute only means "clear" if every feed is 'ok'.
   // The number goes to the lookup exactly as typed. Each answer is kept for 6 hours (a flight's usual route
   // doesn't change from one hour to the next), in memory only: adsbdb's licence doesn't let us store its routes.
   // "QF25", "qf25" and "QF 25" share one cache entry. A failed lookup isn't kept, so the next search tries again.
@@ -50,18 +67,15 @@ export function buildServer(options = {}) {
     }
     if (!route) return reply.code(404).send({ error: 'not-found' });
     // A new object, so the cached route isn't changed.
-    const sigmets = poller?.latest('sigmets') ?? [];
-    const volcanoes = poller?.latest('volcanoes') ?? [];
-    return { ...route, onRoute: warningsOnRoute(route, [...sigmets, ...volcanoes]) };
+    const { warnings, feeds } = warningFeeds();
+    return { ...route, onRoute: warningsOnRoute(route, warnings), feeds };
   });
 
-  // All current warnings in one list: the SIGMETs (storms, turbulence, icing, volcanic ash) followed by the
-  // volcano alerts. Each list counts as [] until its first fetch is in, so one feed being slow or down never
-  // hides the other.
-  app.get('/api/warnings', async () => [
-    ...(poller?.latest('sigmets') ?? []),
-    ...(poller?.latest('volcanoes') ?? []),
-  ]);
+  // All current warnings, and how each feed is doing:
+  //   { warnings: [...], feeds: { sigmets: { status, fetchedAt }, volcanoes: { status, fetchedAt } } }
+  // warnings is the SIGMETs (storms, turbulence, icing, volcanic ash) followed by the volcano alerts. A feed
+  // with no data adds nothing to it, so one feed being slow or down never hides the other; its status says so.
+  app.get('/api/warnings', async () => warningFeeds());
 
   return app;
 }
