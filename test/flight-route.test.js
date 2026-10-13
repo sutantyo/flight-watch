@@ -30,7 +30,9 @@ test('GET /api/flight/:number returns the route from lookupRoute', async () => {
   });
   const res = await app.inject({ method: 'GET', url: '/api/flight/QF25' });
   assert.equal(res.statusCode, 200);
-  assert.deepEqual(res.json(), { ...qfa25, onRoute: [] }); // no poller, so no warnings on the route
+  // No poller, so no warnings on the route, and both feeds say they have no data.
+  const noDataFeed = { status: 'no-data', fetchedAt: null };
+  assert.deepEqual(res.json(), { ...qfa25, onRoute: [], feeds: { sigmets: noDataFeed, volcanoes: noDataFeed } });
   assert.deepEqual(asked, ['QF25']); // passed on as given
   await app.close();
 });
@@ -109,6 +111,7 @@ test('a failed lookup is not cached: the next search asks adsbdb again', async (
 
 // Route check (core/route-check.js): the answer says which warnings the route passes near.
 const fakePoller = (results) => ({ latest: (name) => results[name] });
+const ok = (items) => ({ status: 'ok', fetchedAt: '2026-10-12T00:00:00.000Z', items });
 
 const sigmet = (id, coords) => ({
   id,
@@ -127,7 +130,7 @@ test('GET /api/flight/:number includes onRoute: the warnings the route passes ne
   const farAway = sigmet('YMMM-2', [[-36, 158], [-36, 160], [-38, 160], [-38, 158]]);
   const app = buildServer({
     lookupRoute: async () => qfa25,
-    poller: fakePoller({ sigmets: [onRoute, farAway] }),
+    poller: fakePoller({ sigmets: ok([onRoute, farAway]) }),
   });
   const res = await app.inject({ method: 'GET', url: '/api/flight/QF25' });
   assert.equal(res.statusCode, 200);
@@ -159,7 +162,7 @@ test('GET /api/flight/:number includes volcano alerts near the route in onRoute,
   const onRoute = sigmet('YMMM-1', [[-32.5, 150.5], [-32.5, 151.5], [-33.5, 151.5], [-33.5, 150.5]]);
   const app = buildServer({
     lookupRoute: async () => qfa25,
-    poller: fakePoller({ sigmets: [onRoute], volcanoes: [nearRoute] }),
+    poller: fakePoller({ sigmets: ok([onRoute]), volcanoes: ok([nearRoute]) }),
   });
   const res = await app.inject({ method: 'GET', url: '/api/flight/QF25' });
   assert.equal(res.statusCode, 200);
