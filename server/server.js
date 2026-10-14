@@ -6,7 +6,7 @@ import { log } from './log.js';
 import { loadAirports } from './feeds/airports.js';
 import { startPolling } from './poller.js';
 import { cached } from './cache.js';
-import { warningsOnRoute } from '../core/route-check.js';
+import { warningsOnRoute, densify } from '../core/route-check.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -48,6 +48,8 @@ export function buildServer(options = {}) {
   );
 
   // A flight's usual route: { callsign, from, to, points: [{ lat, lon }], onRoute: [warnings], feeds }.
+  // points run along the great circle between the two airports, the way planes fly, so the map can draw
+  // them as they are (a straight line on the flat map can be hundreds of km off, see #22).
   // onRoute is the SIGMET warnings and volcano alerts the route passes through or within 50 km of.
   // feeds is the same as in /api/warnings: an empty onRoute only means "clear" if every feed is 'ok'.
   // The number goes to the lookup exactly as typed. Each answer is kept for 6 hours (a flight's usual route
@@ -68,7 +70,7 @@ export function buildServer(options = {}) {
     if (!route) return reply.code(404).send({ error: 'not-found' });
     // A new object, so the cached route isn't changed.
     const { warnings, feeds } = warningFeeds();
-    return { ...route, onRoute: warningsOnRoute(route, warnings), feeds };
+    return { ...route, points: densify(route.points), onRoute: warningsOnRoute(route, warnings), feeds };
   });
 
   // All current warnings, and how each feed is doing:

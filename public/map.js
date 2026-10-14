@@ -51,8 +51,9 @@ function clearFlight() {
   hideRoutePanel();
 }
 
-// Draw the route as a line from one airport to the other, with a marker at each end,
-// and zoom the map to fit it. The label on the arrival airport says where the flight goes.
+// Draw the route along the points the server sends (the great circle between the two airports, the way
+// planes fly, see #22), with a marker at each end, and zoom the map to fit it. The label on the arrival
+// airport says where the flight goes.
 function showFlight(flight) {
   const points = flight.points.map((p) => [p.lat, p.lon]);
   const line = L.polyline(points, { color: '#d9480f', weight: 3 });

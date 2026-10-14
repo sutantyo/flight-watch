@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { buildServer } from '../server/server.js';
 import { clearCache } from '../server/cache.js';
+import { densify } from '../core/route-check.js';
 
 // Route lookups are cached, so every test starts with an empty cache.
 beforeEach(() => clearCache());
@@ -32,7 +33,12 @@ test('GET /api/flight/:number returns the route from lookupRoute', async () => {
   assert.equal(res.statusCode, 200);
   // No poller, so no warnings on the route, and both feeds say they have no data.
   const noDataFeed = { status: 'no-data', fetchedAt: null };
-  assert.deepEqual(res.json(), { ...qfa25, onRoute: [], feeds: { sigmets: noDataFeed, volcanoes: noDataFeed } });
+  assert.deepEqual(res.json(), {
+    ...qfa25,
+    points: densify(qfa25.points),
+    onRoute: [],
+    feeds: { sigmets: noDataFeed, volcanoes: noDataFeed },
+  });
   assert.deepEqual(asked, ['QF25']); // passed on as given
   await app.close();
 });
@@ -135,7 +141,7 @@ test('GET /api/flight/:number includes onRoute: the warnings the route passes ne
   const res = await app.inject({ method: 'GET', url: '/api/flight/QF25' });
   assert.equal(res.statusCode, 200);
   assert.deepEqual(res.json().onRoute, [onRoute]);
-  assert.deepEqual(res.json().points, qfa25.points); // the route itself is unchanged
+  assert.deepEqual(res.json().points, densify(qfa25.points)); // the route itself, along the great circle
   await app.close();
 });
 
@@ -167,5 +173,16 @@ test('GET /api/flight/:number includes volcano alerts near the route in onRoute,
   const res = await app.inject({ method: 'GET', url: '/api/flight/QF25' });
   assert.equal(res.statusCode, 200);
   assert.deepEqual(res.json().onRoute, [onRoute, nearRoute]);
+  await app.close();
+});
+
+test('GET /api/flight/:number sends the route along the great circle, so the map draws the way planes fly (#22)', async () => {
+  const app = buildServer({ lookupRoute: async () => qfa25 });
+  const res = await app.inject({ method: 'GET', url: '/api/flight/QF25' });
+  const { points } = res.json();
+  // Sydney to Haneda is about 7,800 km: many points, starting and ending at the two airports.
+  assert.ok(points.length > 30, `got ${points.length} points`);
+  assert.deepEqual(points[0], { lat: qfa25.from.lat, lon: qfa25.from.lon });
+  assert.deepEqual(points.at(-1), { lat: qfa25.to.lat, lon: qfa25.to.lon });
   await app.close();
 });
