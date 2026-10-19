@@ -89,25 +89,31 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   // Keep the warnings fresh in the background, loaded when first used like the route lookup.
   // SIGMETs every 5 minutes: they're issued for hours at a time, so that's plenty. aviationweather.gov allows
   // 100 requests a minute, and that counts every copy of the app on our office network together (see #11).
-  const poller = startPolling({
-    log,
-    sources: [
-      {
-        name: 'sigmets',
-        everySeconds: 5 * 60,
-        fetch: async () => (await import('./feeds/sigmets.js')).fetchSigmets(),
-      },
-      // Volcano alerts from USGS. Alert levels change over hours or days, not minutes, and USGS asks for
-      // reasonable use, so every 10 minutes is plenty: 144 requests a day.
-      {
-        name: 'volcanoes',
-        everySeconds: 600,
-        fetch: async () => (await import('./feeds/volcanoes.js')).fetchVolcanoes(),
-      },
-    ],
-  });
+  let lookupRoute = lookupFromAdsbdb;
+  let sources = [
+    {
+      name: 'sigmets',
+      everySeconds: 5 * 60,
+      fetch: async () => (await import('./feeds/sigmets.js')).fetchSigmets(),
+    },
+    // Volcano alerts from USGS. Alert levels change over hours or days, not minutes, and USGS asks for
+    // reasonable use, so every 10 minutes is plenty: 144 requests a day.
+    {
+      name: 'volcanoes',
+      everySeconds: 600,
+      fetch: async () => (await import('./feeds/volcanoes.js')).fetchVolcanoes(),
+    },
+  ];
 
-  const app = buildServer({ poller });
+  // Replay mode: REPLAY=tasman serves saved data from replay/tasman/ instead of the feeds that have a file
+  // there (see server/replay.js). Feeds without a file stay live. Loaded only when asked for, like the feeds.
+  if (process.env.REPLAY) {
+    const { applyReplay } = await import('./replay.js');
+    ({ lookupRoute, sources } = applyReplay(process.env.REPLAY, { lookupRoute, sources }));
+  }
+
+  const poller = startPolling({ log, sources });
+  const app = buildServer({ lookupRoute, poller });
   await app.listen({ port, host: '0.0.0.0' });
   log.info(`Flight Watch running at http://localhost:${port}`);
 }
