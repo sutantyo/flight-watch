@@ -189,3 +189,22 @@ test('replay: a saved route to an airport missing from our file stops with a cle
   const { fetch } = fakeFetch();
   assert.throws(() => applyReplay('test', { root, ...liveFeeds(fetch) }), /route-QFA145\.json: ZZZ isn't in data\/airports\.csv/);
 });
+
+test('replay: the tasman scenario replays QF145, the SIGMETs and the volcano alerts', async (t) => {
+  const readLog = captureLog(t);
+  const { fetch, urls } = fakeFetch();
+  const replay = applyReplay('tasman', liveFeeds(fetch)); // the real replay/tasman/ folder
+
+  const app = buildServer({ lookupRoute: replay.lookupRoute, poller: await poll(t, replay.sources) });
+  const flight = await get(app, '/api/flight/QF145');
+  const answer = await get(app, '/api/warnings');
+  await app.close();
+
+  assert.match(readLog(), /replay "tasman": replaying route-QFA145, sigmets, volcanoes; live: other flights/);
+  assert.equal(flight.from.iata, 'SYD');
+  assert.equal(flight.to.iata, 'AKL');
+  assert.deepEqual(flight.onRoute, []); // nothing in this scenario is near QF145's route
+  assert.equal(answer.warnings.filter((w) => w.kind === 'sigmet').length, 9);
+  assert.equal(answer.warnings.filter((w) => w.kind === 'volcano').length, 4);
+  assert.deepEqual(urls, []);
+});
