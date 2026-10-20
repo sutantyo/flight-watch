@@ -39,19 +39,27 @@ export async function lookupRoute(input, { fetch = globalThis.fetch } = {}) {
     throw err;
   }
   const { flightroute } = (await res.json()).response;
-  const from = findAirport(flightroute.origin.iata_code);
-  const to = findAirport(flightroute.destination.iata_code);
+  return routeBetween(flightroute.callsign_icao, flightroute.origin.iata_code, flightroute.destination.iata_code);
+}
+
+// Build a route from a callsign and two airport codes, e.g. routeBetween('QFA25', 'SYD', 'HND'), with positions
+// and names from our own airports file. lookupRoute uses it on adsbdb's answer; replay mode (server/replay.js)
+// uses it on a saved route, so a replayed route looks exactly like a live one.
+// Returns null, with a WARN, if one of the airports isn't in our file.
+export function routeBetween(callsign, fromIata, toIata) {
+  const from = findAirport(fromIata);
+  const to = findAirport(toIata);
   // Our file only has large and medium airports, so a route to a small airfield can't be drawn.
   if (!from || !to) {
-    const missing = [!from && flightroute.origin.iata_code, !to && flightroute.destination.iata_code].filter(Boolean);
+    const missing = [!from && fromIata, !to && toIata].filter(Boolean);
     log.warn(
-      `route for ${flightroute.callsign_icao} goes from ${flightroute.origin.iata_code} to ` +
-        `${flightroute.destination.iata_code}, and ${missing.join(' and ')} isn't in data/airports.csv: left out`,
+      `route for ${callsign} goes from ${fromIata} to ${toIata}, and ${missing.join(' and ')} isn't in ` +
+        `data/airports.csv: left out`,
     );
     return null;
   }
   return {
-    callsign: flightroute.callsign_icao,
+    callsign,
     from,
     to,
     points: [
