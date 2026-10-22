@@ -29,14 +29,14 @@ test('GET /api/warnings returns no warnings, marked no-data, before the first fe
   const app = buildServer({ poller: fakePoller({}) });
   const res = await app.inject({ method: 'GET', url: '/api/warnings' });
   assert.equal(res.statusCode, 200);
-  assert.deepEqual(res.json(), { warnings: [], feeds: { sigmets: noDataFeed, volcanoes: noDataFeed } });
+  assert.deepEqual(res.json(), { warnings: [], feeds: { sigmets: noDataFeed, volcanoes: noDataFeed, cyclones: noDataFeed } });
   await app.close();
 });
 
 test('GET /api/warnings returns no warnings, marked no-data, when there is no poller (tests, or polling not started)', async () => {
   const app = buildServer();
   const res = await app.inject({ method: 'GET', url: '/api/warnings' });
-  assert.deepEqual(res.json(), { warnings: [], feeds: { sigmets: noDataFeed, volcanoes: noDataFeed } });
+  assert.deepEqual(res.json(), { warnings: [], feeds: { sigmets: noDataFeed, volcanoes: noDataFeed, cyclones: noDataFeed } });
   await app.close();
 });
 
@@ -58,7 +58,7 @@ test('GET /api/warnings returns just the SIGMETs while the volcano alerts are em
   for (const [volcanoes, status] of [[ok([]), okFeed], [undefined, noDataFeed]]) {
     const app = buildServer({ poller: fakePoller({ sigmets: ok([warning]), volcanoes }) });
     const res = await app.inject({ method: 'GET', url: '/api/warnings' });
-    assert.deepEqual(res.json(), { warnings: [warning], feeds: { sigmets: okFeed, volcanoes: status } });
+    assert.deepEqual(res.json(), { warnings: [warning], feeds: { sigmets: okFeed, volcanoes: status, cyclones: noDataFeed } });
     await app.close();
   }
 });

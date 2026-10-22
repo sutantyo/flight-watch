@@ -31,13 +31,13 @@ test('GET /api/flight/:number returns the route from lookupRoute', async () => {
   });
   const res = await app.inject({ method: 'GET', url: '/api/flight/QF25' });
   assert.equal(res.statusCode, 200);
-  // No poller, so no warnings on the route, and both feeds say they have no data.
+  // No poller, so no warnings on the route, and every feed says they have no data.
   const noDataFeed = { status: 'no-data', fetchedAt: null };
   assert.deepEqual(res.json(), {
     ...qfa25,
     points: densify(qfa25.points),
     onRoute: [],
-    feeds: { sigmets: noDataFeed, volcanoes: noDataFeed },
+    feeds: { sigmets: noDataFeed, volcanoes: noDataFeed, cyclones: noDataFeed },
   });
   assert.deepEqual(asked, ['QF25']); // passed on as given
   await app.close();

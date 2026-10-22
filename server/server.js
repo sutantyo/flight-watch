@@ -23,12 +23,14 @@ export function buildServer(options = {}) {
 
   // The latest result for each warning feed: { status: 'ok' | 'no-data', fetchedAt, items } (see poller.js).
   // 'no-data' means we don't know (a 204, or no answer yet), which is not the same as "no warnings" (issue #23).
-  const WARNING_FEEDS = ['sigmets', 'volcanoes'];
+  // TODO: route check doesn't know cyclones yet (only volcano circles and SIGMET polygons) — talk to Gaurav.
+  // Until then cyclones show up in /api/warnings but never in a flight's onRoute (their shape is a 'point').
+  const WARNING_FEEDS = ['sigmets', 'volcanoes', 'cyclones'];
   const noData = { status: 'no-data', fetchedAt: null, items: [] };
   function warningFeeds() {
     const results = Object.fromEntries(WARNING_FEEDS.map((name) => [name, poller?.latest(name) ?? noData]));
     return {
-      // All the warnings we have, SIGMETs first, then the volcano alerts.
+      // All the warnings we have, SIGMETs first, then the volcano alerts, then the tropical cyclones.
       warnings: WARNING_FEEDS.flatMap((name) => results[name].items),
       // Per feed, whether we have data and when it arrived, so the page can tell "clear" from "unknown".
       feeds: Object.fromEntries(
@@ -50,7 +52,8 @@ export function buildServer(options = {}) {
   // A flight's usual route: { callsign, from, to, points: [{ lat, lon }], onRoute: [warnings], feeds }.
   // points run along the great circle between the two airports, the way planes fly, so the map can draw
   // them as they are (a straight line on the flat map can be hundreds of km off, see #22).
-  // onRoute is the SIGMET warnings and volcano alerts the route passes through or within 50 km of.
+  // onRoute is the SIGMET warnings and volcano alerts the route passes through or within 50 km of (not cyclones yet,
+  // see the TODO at WARNING_FEEDS).
   // feeds is the same as in /api/warnings: an empty onRoute only means "clear" if every feed is 'ok'.
   // The number goes to the lookup exactly as typed. Each answer is kept for 6 hours (a flight's usual route
   // doesn't change from one hour to the next), in memory only: adsbdb's licence doesn't let us store its routes.
@@ -74,9 +77,10 @@ export function buildServer(options = {}) {
   });
 
   // All current warnings, and how each feed is doing:
-  //   { warnings: [...], feeds: { sigmets: { status, fetchedAt }, volcanoes: { status, fetchedAt } } }
-  // warnings is the SIGMETs (storms, turbulence, icing, volcanic ash) followed by the volcano alerts. A feed
-  // with no data adds nothing to it, so one feed being slow or down never hides the other; its status says so.
+  //   { warnings: [...], feeds: { sigmets: { status, fetchedAt }, volcanoes: { ... }, cyclones: { ... } } }
+  // warnings is the SIGMETs (storms, turbulence, icing, volcanic ash), then the volcano alerts, then the
+  // tropical cyclones from GDACS. A feed with no data adds nothing to it, so one feed being slow or down never
+  // hides the others; its status says so.
   app.get('/api/warnings', async () => warningFeeds());
 
   return app;
@@ -102,6 +106,13 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
       name: 'volcanoes',
       everySeconds: 600,
       fetch: async () => (await import('./feeds/volcanoes.js')).fetchVolcanoes(),
+    },
+    // Tropical cyclones from GDACS (issue #26). A storm moves a few hundred km a day and GDACS updates its
+    // events every few hours, so every 15 minutes is plenty: 96 requests a day.
+    {
+      name: 'cyclones',
+      everySeconds: 900,
+      fetch: async () => (await import('./feeds/cyclones.js')).fetchCyclones(),
     },
   ];
 
