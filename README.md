@@ -65,7 +65,7 @@ file):
 
 | What | From | Licence |
 |---|---|---|
-| Flight routes (from and to airports) | [adsbdb](https://github.com/mrjackwills/adsbdb) | Free to ask, no key. The route data may not be copied or published, so we don't save it |
+| Flight routes (from and to airports) | [adsbdb](https://github.com/mrjackwills/adsbdb) | Free to ask, no key. The route data is the work of David Taylor and Jim Mason and may not be copied or published, so we don't save it |
 | Airports | [OurAirports](https://ourairports.com) | Public domain |
 | SIGMET warnings | [aviationweather.gov](https://aviationweather.gov) | US government work |
 | Volcano alerts | [USGS](https://volcanoes.usgs.gov/hans-public/) | US government work |
@@ -77,3 +77,7 @@ Thanks to all of them. The saved files, and how to refresh them, are described i
 
 The project wiki has the rest: getting started, who owns what, each data source's limits and quirks, how the
 map layers work, what to do when a feed goes quiet, and how to read the logs.
+
+## Licence
+
+The code is under the MIT licence (see `LICENSE`). The data files keep their own licences: see `data/README.md`.
