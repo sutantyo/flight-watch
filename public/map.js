@@ -7,6 +7,53 @@ import { escapeHtml } from './text.js';
 // callsigns, airport names) goes through escapeHtml first, so it shows as text instead of being read as HTML.
 
 const map = L.map('map').setView([20, 0], 2);
+const airportMarkers = [];
+const themeToggle = document.getElementById('theme-toggle');
+const themeStorageKey = 'flight-watch-theme';
+const darkPreference = window.matchMedia('(prefers-color-scheme: dark)');
+let savedTheme = null;
+try {
+  savedTheme = localStorage.getItem(themeStorageKey);
+} catch (err) {
+  // Keep the system preference when browser storage is unavailable.
+}
+let darkTheme = savedTheme === 'dark' || (savedTheme !== 'light' && darkPreference.matches);
+
+function airportStyle() {
+  return {
+    radius: 3,
+    color: darkTheme ? '#f1f5f9' : '#1f3a5f',
+    weight: 1,
+    fillColor: darkTheme ? '#8ec5ff' : '#3c78c3',
+    fillOpacity: 0.9,
+  };
+}
+
+function updateAirportStyles() {
+  for (const marker of airportMarkers) marker.setStyle(airportStyle());
+}
+
+function applyTheme(isDark) {
+  darkTheme = isDark;
+  document.documentElement.dataset.theme = isDark ? 'dark' : 'light';
+  themeToggle.setAttribute('aria-pressed', String(isDark));
+  themeToggle.textContent = isDark ? 'Use light map' : 'Use dark map';
+  updateAirportStyles();
+}
+
+applyTheme(darkTheme);
+themeToggle.addEventListener('click', () => {
+  applyTheme(!darkTheme);
+  savedTheme = darkTheme ? 'dark' : 'light';
+  try {
+    localStorage.setItem(themeStorageKey, savedTheme);
+  } catch (err) {
+    // The in-page toggle still works when storage is unavailable.
+  }
+});
+darkPreference.addEventListener('change', (event) => {
+  if (savedTheme === null) applyTheme(event.matches);
+});
 
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
   maxZoom: 19,
@@ -21,15 +68,10 @@ async function showAirports() {
     const airports = await res.json();
 
     for (const airport of airports) {
-      L.circleMarker([airport.lat, airport.lon], {
-        radius: 3,
-        color: '#1f3a5f',
-        weight: 1,
-        fillColor: '#3c78c3',
-        fillOpacity: 0.8,
-      })
+      const marker = L.circleMarker([airport.lat, airport.lon], airportStyle())
         .bindTooltip(`${escapeHtml(airport.iata)} ${escapeHtml(airport.name)}`)
         .addTo(map);
+      airportMarkers.push(marker);
     }
   } catch (err) {
     // No airports, but the map still works.

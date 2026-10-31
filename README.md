@@ -19,6 +19,8 @@ Type a flight number and see where it's going: its path on a world map, plus the
 - **Says when it doesn't know.** If a warning feed has no data, the map and the route panel say
   "Warning data unavailable" and name the feed, instead of "Nothing on your route right now".
 
+- **Dark map mode** follows your system setting by default, with a remembered toggle. It darkens the OpenStreetMap tiles without changing tile providers or aviation warning colours.
+
 ## Run it
 
 You need Node 22 or later.
