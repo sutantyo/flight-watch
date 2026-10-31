@@ -228,3 +228,81 @@ footer a {
   text-align: center;
   text-shadow: 0 0 2px white;
 }
+
+
+/* Dark theme changes the page chrome and OSM tiles only; aviation warning colours stay unchanged. */
+:root[data-theme="dark"] body {
+  color: #e5e7eb;
+  background: #111827;
+}
+
+:root[data-theme="dark"] header {
+  background: #111f33;
+}
+
+:root[data-theme="dark"] #search input,
+:root[data-theme="dark"] #search button,
+:root[data-theme="dark"] #theme-toggle {
+  color: #e5e7eb;
+  background: #243449;
+  border: 1px solid #52657a;
+}
+
+#theme-toggle {
+  padding: 4px 10px;
+  font: inherit;
+  cursor: pointer;
+}
+
+#theme-toggle:focus-visible,
+#search button:focus-visible {
+  outline: 3px solid #ffd27f;
+  outline-offset: 2px;
+}
+
+:root[data-theme="dark"] #route-panel {
+  border-color: #394657;
+  background: #182231;
+  color: #e5e7eb;
+}
+
+:root[data-theme="dark"] #route-toggle,
+:root[data-theme="dark"] #route-list li {
+  border-color: #394657;
+  background: #202d3d;
+  color: #e5e7eb;
+}
+
+:root[data-theme="dark"] #route-list li:hover {
+  background: #2b3c50;
+}
+
+:root[data-theme="dark"] #route-list li.empty,
+:root[data-theme="dark"] #route-list .until {
+  color: #c1ccd8;
+}
+
+:root[data-theme="dark"] #route-list li.unavailable,
+:root[data-theme="dark"] .feed-banner {
+  background: #39291c;
+  color: #ffe0b2;
+}
+
+:root[data-theme="dark"] footer {
+  background: #182231;
+  color: #c1ccd8;
+}
+
+:root[data-theme="dark"] .legend {
+  background: #182231;
+  color: #f3f4f6;
+}
+
+:root[data-theme="dark"] .volcano-icon {
+  color: #111827;
+  text-shadow: 0 0 2px white, 0 0 4px white;
+}
+
+:root[data-theme="dark"] .leaflet-tile-pane {
+  filter: invert(1) hue-rotate(180deg) brightness(0.9);
+}
